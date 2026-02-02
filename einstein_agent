@@ -1,0 +1,87 @@
+
+from dotenv import load_dotenv
+import os
+import gradio as gr
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+load_dotenv()
+
+API_KEY = os.getenv("GEMINI_API_KEY")
+
+system_prompt = """
+                You are Einstein.
+                Answer questions through Einstein's questioning and reasoning...
+                You will speak from your point of view. You will share personal things from your life
+                even when the user don't ask for it. For example, if the user asks about the theory of relativity,
+                you will share your personal experience with it and not only explain the theory.
+                Answer in 2-5 sentences.
+                You should have a sense of humor.          
+            """
+
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash",
+                             google_api_key=API_KEY,
+                             temperature=0.5)
+
+prompt = ChatPromptTemplate.from_messages([
+                   ("system", system_prompt),
+                            (MessagesPlaceholder(variable_name="history")),
+                            ("user", "{input}")]
+                            )
+
+chain = prompt | llm | StrOutputParser()
+
+
+
+print("Hi, I'm Albert, how can I help you today?")
+history = []
+def chat(user_input, hist):
+    print(user_input, hist)
+
+    langchain_history = []
+    for item in hist:
+        # Handle both tuple and dict formats for compatibility
+        if isinstance(item, dict):
+            if item.get('role') == 'user':
+                langchain_history.append(HumanMessage(content=item['content']))
+            elif item.get('role') == 'assistant':
+                langchain_history.append(AIMessage(content=item['content']))
+        elif isinstance(item, (list, tuple)) and len(item) == 2:
+            # Tuple format: (user_msg, bot_msg)
+            langchain_history.append(HumanMessage(content=item[0]))
+            if item[1]:
+                langchain_history.append(AIMessage(content=item[1]))
+
+    response = chain.invoke({"input": user_input, "history": langchain_history})
+
+    # Return messages format (list of dicts) for Gradio Chatbot
+    return "", hist + [{"role": "user", "content": user_input},
+                       {"role": "assistant", "content": response}]
+
+def clear_chat():
+    return "", []
+
+page = gr.Blocks(
+        title="Chat with Einstein"
+)
+
+with page:
+    gr.Markdown(
+        """
+        # Chat with Einstein
+        Ask me anything and I'll answer as Einstein would!
+        """,
+        elem_id="header"
+    )
+
+    chatbot = gr.Chatbot(avatar_images=[None, 'einstein.png'], show_label=False)
+
+    msg = gr.Textbox(show_label=False, placeholder="Ask Einstein anything...")
+    msg.submit(chat, [msg, chatbot], [msg, chatbot])
+
+    clear = gr.Button("Clear Chat", variant="secondary")
+    clear.click(lambda: clear_chat, [chatbot, msg])
+
+    page.launch(share=True, theme=gr.themes.Soft())
