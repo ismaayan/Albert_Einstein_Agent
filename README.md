@@ -24,18 +24,17 @@ Built with **Google Gemini**, **LangChain**, and **Gradio**.
 - Gradio
 - python-dotenv
 
----
 
 ## 📂 Project Structure
 
+```
 .
 ├── gemini_bot.py        # Main application file
 ├── einstein.png         # Avatar image (optional)
 ├── .env                 # Environment variables (not committed)
 └── README.md
+```
 
-
----
 
 ## 🚀 Installation & Setup
 
